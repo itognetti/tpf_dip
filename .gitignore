@@ -1,0 +1,37 @@
+# Entornos y cachés de Python y Jupyter
+.venv*/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Fotografías locales, datasets, pesos y resultados generados
+/data/original/*
+!/data/original/.gitkeep
+/data/raw/
+/data/cropped/*
+!/data/cropped/.gitkeep
+/data/characters/*
+!/data/characters/.gitkeep
+/data/synthetic/*
+!/data/synthetic/.gitkeep
+/models/*
+!/models/.gitkeep
+/results/detected/*
+!/results/detected/.gitkeep
+/results/processed/*
+!/results/processed/.gitkeep
+/results/characters/*
+!/results/characters/.gitkeep
+/results/graphs/*
+!/results/graphs/.gitkeep
+/results/dataset_import.csv
+/results/preprocessing_experiments.csv
+/results/preprocessing_summary.csv
+/results/psm8/
+/results/stage3_desarrollo/
+/results/detection_*.csv
+/results/detection_config.json
+/results/stage4b/
+/results/stage5/
