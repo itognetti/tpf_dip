@@ -148,6 +148,8 @@ def graficar_recorrido(r: Recorrido, vigente: dict, referencia=None, etiqueta=""
     puntaje = f"puntaje {elegido.puntaje:.2f}" if elegido is not None else "sin selección"
     if elegido is not None and elegido.evidencia is not None:
         puntaje += f" · caracteres {elegido.evidencia:.2f}"
+    if elegido is not None and elegido.origen:
+        puntaje += f" · respaldo: {elegido.origen}"
     nombre = vigente.get("nombre_detector", "")
     eje = panel(g[1, 3], gris, f"5–7 · {nombre} · {len(r.deteccion.candidatos)} contornos → "
                 f"{len(validos)} admitidos\namarillo = admitido · rojo = elegido\n{puntaje}")

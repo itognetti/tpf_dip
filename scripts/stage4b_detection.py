@@ -36,6 +36,8 @@ def _variantes(base):
                                     kernel_dilatacion=(3, 3), iteraciones_dilatacion=2), ()),
         "B3_FILTRO": ("D3", flexible, ()),
         "B3_CARACTERES": ("D3", replace(flexible, reordenar_k=3, peso_caracteres=.5), ()),
+        "B3_RESPALDO": ("D3", replace(flexible, reordenar_k=3, peso_caracteres=.5, respaldo_evidencia=.2,
+                                      respaldo_apertura=(9, 3), respaldo_vertical=1.0), ()),
         "B3_VERT": ("D3", vertical, ()),
         "B2_MULTI": ("D2", relativo, (760, 1200)),
         "B3_MULTI": ("D3", relativo, (760, 1200)),

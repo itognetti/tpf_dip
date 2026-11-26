@@ -208,3 +208,48 @@ def test_reordenamiento_por_caracteres_prefiere_la_patente():
     assert patente.evidencia > .9 and señuelo.evidencia == 0.0
     with pytest.raises(ValueError):
         det.ConfigDetector(reordenar_k=0)
+
+
+def _foto_bordes():
+    """Foto sintética con trazos verticales, diagonales y un bloque de texto."""
+    foto = np.full((300, 600), 150, np.uint8)
+    for x in range(60, 260, 24):
+        cv2.line(foto, (x, 80), (x, 140), 20, 4)
+    for x in range(320, 540, 24):
+        cv2.line(foto, (x, 80), (x + 60, 140), 20, 4)
+    return cv2.cvtColor(foto, cv2.COLOR_GRAY2RGB)
+
+
+def test_filtro_vertical_y_apertura_solo_reducen_la_mascara():
+    foto = _foto_bordes()
+    base = det.detectar_patente(foto, "D3", det.ConfigDetector(), trazas=True).imagenes
+    vertical = det.detectar_patente(foto, "D3", det.ConfigDetector(vertical_min=2.0), trazas=True).imagenes
+    diagonal = (slice(70, 150), slice(310, 600))
+    assert np.count_nonzero(vertical["binaria"][diagonal]) < np.count_nonzero(base["binaria"][diagonal])
+    abierta = det.detectar_patente(foto, "D3", det.ConfigDetector(apertura=(9, 3)), trazas=True).imagenes
+    assert not np.any((abierta["mascara"] > 0) & (base["mascara"] == 0))
+
+
+def test_configuracion_del_respaldo():
+    with pytest.raises(ValueError):
+        det.ConfigDetector(respaldo_evidencia=.2)
+    with pytest.raises(ValueError):
+        det.ConfigDetector(apertura=(9, 0))
+    config = det.ConfigDetector(respaldo_evidencia=.2, respaldo_apertura=(9, 3), respaldo_vertical=1.0)
+    nombres = [n for n, c in det.generaciones_respaldo(config)]
+    assert nombres == ["apertura", "vertical"]
+    assert all(c.respaldo_evidencia == 0 for _, c in det.generaciones_respaldo(config))
+
+
+def test_respaldo_reemplaza_solo_con_mas_evidencia(monkeypatch):
+    config = det.ConfigDetector(respaldo_evidencia=.2, respaldo_apertura=(9, 3), respaldo_vertical=1.0)
+    original = _candidato((0, 0, 10, 5), .9)
+    original.evidencia = .1
+    pobre, rica = _candidato((20, 0, 30, 5), .5), _candidato((40, 0, 50, 5), .4)
+    pobre.evidencia, rica.evidencia = .05, .8
+    respuestas = iter([det.Deteccion([pobre], pobre, "", {}, 3), det.Deteccion([rica], rica, "", {}, 4)])
+    monkeypatch.setattr(det, "detectar_patente", lambda *a, **k: next(respuestas))
+    elegido, extra, contornos = det.aplicar_respaldo(None, "D3", config, original)
+    assert elegido is rica and rica.origen == "vertical" and pobre.origen == "apertura"
+    assert extra == [pobre, rica] and contornos == 7
+    assert det._sin_evidencia(None, .2) and det._sin_evidencia(original, .2) and not det._sin_evidencia(rica, .2)

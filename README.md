@@ -259,6 +259,31 @@ La etapa 5 conserva B3_FILTRO por defecto. Para segmentar los recortes del nuevo
 
 Con S0 y banda `fila`, la cantidad correcta en recortes automáticos pasó de 15/58 a 18/58.
 
+### Respaldo morfológico para patentes no generadas
+
+Con B3_CARACTERES, en 25 de las 58 fotos ningún contorno alcanzaba IoU ≥ 0,50 con la patente, aun antes de los filtros. La medición dentro de la caja XML, hecha fuera del detector, mostró tres grupos. En 13 fotos los bordes de la patente eran tan densos como en los casos correctos, pero el cierre de 19 × 5 los unía con la parrilla, el paragolpes o el fondo y el contorno que la contenía tenía una mediana de 8,7 veces su área. En 7 solo sobrevivían fragmentos cercanos. En 5, de patentes muy grandes, los bordes eran escasos y el cierre fijo no llegaba a unir los trazos. El umbral de Otsu sobre $|G_x|$, cerca de 37, quedaba muy por debajo de la intensidad de los bordes de la patente, cerca de 85.
+
+Ningún cambio global mejoró el total. Subir el umbral, conservar solo bordes cercanos a la vertical, aplicar sombrero negro y blanco antes de Sobel o abrir la máscara después del cierre recuperaban entre 2 y 8 patentes y perdían una cantidad similar de casos correctos. Las fallas requieren correcciones opuestas según el tamaño de la patente y su entorno.
+
+B3_RESPALDO usa esas variantes solo cuando la caja elegida no muestra caracteres, con evidencia menor que 0,2. Entonces genera candidatos con una apertura de 9 × 3 después del cierre y, por separado, con $|G_x|$ restringido a bordes donde $|G_x| \ge |G_y|$. Cada generación aplica los mismos filtros y el reordenamiento por caracteres. Una alternativa reemplaza la selección solo si tiene más evidencia de caracteres. Los parámetros están en `ConfigDetector.respaldo_evidencia`, `respaldo_apertura` y `respaldo_vertical`, y los valores por defecto desactivan el respaldo. [Implementación](src/detection.py)
+
+Con Tesseract 5.4.0, sobre las mismas 58 fotos de desarrollo:
+
+| Detector | Patente generada | IoU ≥ 0,50 | IoU ≥ 0,75 | IoU medio | Exactas | CER | Vacías | Tiempo medio |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| B3_CARACTERES | 33/58 | 30/58 | 18/58 | 0,4156 | 5/58 | 0,7154 | 19 | 32,7 ms |
+| B3_RESPALDO | 42/58 | 36/58 | 21/58 | 0,5032 | 6/58 | 0,6585 | 15 | 70,2 ms |
+
+Las columnas de lectura usan B0P8 y recorte rectangular. Se ganaron seis patentes y no se perdió ninguna. Ninguna de las 30 cajas correctas empeoró, porque el respaldo no se activa cuando la elegida ya muestra caracteres. AC208NH pasó a leerse en forma exacta. Se probaron once cambios globales y tres combinaciones de respaldo en el mismo conjunto de desarrollo, por lo que la mejora debe confirmarse en la evaluación final reservada.
+
+Para segmentar los recortes de este detector:
+
+```powershell
+.\.venv312\Scripts\python.exe -m scripts.run_segmentation --detector B3_RESPALDO --salida results/stage5/respaldo
+```
+
+Con S0 y banda `fila`, la cantidad correcta en recortes automáticos pasó a 22/58.
+
 ## Etapa 5 · Segmentación y normalización individual
 
 Desde la raíz del proyecto en **CMD**, usá el entorno ya instalado:

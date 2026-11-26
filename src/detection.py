@@ -48,6 +48,11 @@ class ConfigDetector:
     epsilon: float = 0.025
     reordenar_k: int = 1
     peso_caracteres: float = 0.0
+    vertical_min: float = 0.0
+    apertura: tuple[int, int] | None = None
+    respaldo_evidencia: float = 0.0
+    respaldo_vertical: float = 0.0
+    respaldo_apertura: tuple[int, int] | None = None
 
     def __post_init__(self):
         pares = (self.kernel_canny, self.kernel_sobel, self.clahe_grilla,
@@ -81,6 +86,14 @@ class ConfigDetector:
         if (not isinstance(self.reordenar_k, int) or self.reordenar_k < 1
                 or not 0 <= self.peso_caracteres <= 2):
             raise ValueError("El reordenamiento usa k ≥ 1 y un peso de caracteres entre 0 y 2.")
+        for nucleo in (self.apertura, self.respaldo_apertura):
+            if nucleo is not None and (len(nucleo) != 2 or any(not isinstance(v, int) or v < 1 for v in nucleo)):
+                raise ValueError("La apertura usa un núcleo de dos enteros positivos.")
+        if (self.vertical_min < 0 or self.respaldo_vertical < 0
+                or not 0 <= self.respaldo_evidencia <= 1):
+            raise ValueError("Revisá el filtro vertical y el umbral de evidencia del respaldo.")
+        if self.respaldo_evidencia and not (self.respaldo_vertical or self.respaldo_apertura):
+            raise ValueError("El respaldo necesita al menos una generación alternativa.")
 
 
 @dataclass
@@ -99,6 +112,7 @@ class Candidato:
     distribucion_vertical: float | None = None
     escala: int | None = None
     evidencia: float | None = None
+    origen: str = ""
 
 
 @dataclass
@@ -275,7 +289,10 @@ def detectar_patente(imagen: np.ndarray, metodo="D1", config=None, *, trazas=Fal
     if metodo in ("D0", "D1"):
         binaria, tamano = bordes, config.kernel_canny
     else:
-        gx = sobel(filtrada, config.sobel_kernel)[0]
+        gx, gy, _ = sobel(filtrada, config.sobel_kernel)
+        if config.vertical_min:
+            # Conserva solo bordes cercanos a la vertical: descarta trazos diagonales u horizontales.
+            gx = np.where(np.abs(gx) >= config.vertical_min * np.abs(gy), gx, 0)
         binaria, tamano = otsu(intensidad_gradiente(gx)), config.kernel_sobel
         if config.kernel_relativo_sobel is not None:
             tamano = kernel_relativo(gris.shape, config.kernel_relativo_sobel)
@@ -285,6 +302,9 @@ def detectar_patente(imagen: np.ndarray, metodo="D1", config=None, *, trazas=Fal
         mascara = morfologia_rectangular(
             mascara, "dilatacion", config.kernel_dilatacion, config.iteraciones_dilatacion
         )
+    if config.apertura is not None:
+        # Corta puentes delgados que unen la patente con estructuras vecinas.
+        mascara = morfologia_rectangular(mascara, "apertura", config.apertura)
     verticales = None
     if config.peso_vertical:
         gx, gy, _ = sobel(base_densidad, 3)
@@ -293,9 +313,50 @@ def detectar_patente(imagen: np.ndarray, metodo="D1", config=None, *, trazas=Fal
     candidatos = extraer_candidatos(mascara, bordes, imagen.shape, config,
                                    contornos=contornos, bordes_verticales=verticales)
     mejor = seleccionar_candidato(candidatos, imagen, config)
+    n_contornos = len(contornos)
+    if config.respaldo_evidencia and _sin_evidencia(mejor, config.respaldo_evidencia):
+        mejor, extra, n_extra = aplicar_respaldo(imagen, metodo, config, mejor)
+        candidatos = sorted(candidatos + extra, key=lambda c: (-c.puntaje, c.caja))
+        n_contornos += n_extra
     motivo = "" if mejor else ("sin_candidato_valido" if candidatos else "sin_contornos")
     pasos = {"gris": gris, "filtrada": filtrada, "binaria": binaria, "mascara": mascara} if trazas else {}
-    return Deteccion(candidatos, mejor, motivo, pasos, len(contornos))
+    return Deteccion(candidatos, mejor, motivo, pasos, n_contornos)
+
+
+def _sin_evidencia(candidato: Candidato | None, umbral: float) -> bool:
+    return candidato is None or candidato.evidencia is None or candidato.evidencia < umbral
+
+
+def generaciones_respaldo(config: ConfigDetector) -> list[tuple[str, ConfigDetector]]:
+    """Generaciones alternativas de una sola escala, sin respaldo anidado."""
+    from dataclasses import replace
+
+    base = replace(config, respaldo_evidencia=0.0, respaldo_vertical=0.0, respaldo_apertura=None)
+    alternativas = []
+    if config.respaldo_apertura is not None:
+        alternativas.append(("apertura", replace(base, apertura=config.respaldo_apertura)))
+    if config.respaldo_vertical:
+        alternativas.append(("vertical", replace(base, vertical_min=config.respaldo_vertical)))
+    return alternativas
+
+
+def aplicar_respaldo(imagen, metodo, config, elegido):
+    """Prueba las generaciones alternativas cuando la elegida no muestra caracteres.
+
+    Reemplaza la selección solo si una alternativa tiene más evidencia de caracteres.
+    Devuelve la selección, los candidatos agregados y la cantidad de contornos.
+    """
+    extra, contornos = [], 0
+    for nombre, alternativa in generaciones_respaldo(config):
+        resultado = detectar_patente(imagen, metodo, alternativa)
+        for candidato in resultado.candidatos:
+            candidato.origen = nombre
+        extra += resultado.candidatos
+        contornos += resultado.n_contornos
+        nuevo = resultado.seleccionado
+        if nuevo is not None and (elegido is None or (nuevo.evidencia or 0) > (elegido.evidencia or 0)):
+            elegido = nuevo
+    return elegido, extra, contornos
 
 
 def recortar_rectangulo(imagen: np.ndarray, caja: Caja) -> np.ndarray:
