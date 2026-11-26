@@ -251,11 +251,13 @@ def detectar_patente(imagen: np.ndarray, metodo="D1", config=None, *, trazas=Fal
                 else gaussiano(gris, config.gauss_kernel))
     base_densidad = gaussiano(gris, config.gauss_kernel) if metodo == "D3" else filtrada
     bordes = canny(base_densidad, config.canny_bajo, config.canny_alto, config.canny_kernel)
+    gradiente = bordes
     if metodo in ("D0", "D1"):
         binaria, tamano = bordes, config.kernel_canny
     else:
         gx = sobel(filtrada, config.sobel_kernel)[0]
-        binaria, tamano = otsu(intensidad_gradiente(gx)), config.kernel_sobel
+        gradiente = intensidad_gradiente(gx)
+        binaria, tamano = otsu(gradiente), config.kernel_sobel
         if config.kernel_relativo_sobel is not None:
             tamano = kernel_relativo(gris.shape, config.kernel_relativo_sobel)
     mascara = (binaria if metodo == "D0" else
@@ -273,7 +275,8 @@ def detectar_patente(imagen: np.ndarray, metodo="D1", config=None, *, trazas=Fal
                                    contornos=contornos, bordes_verticales=verticales)
     mejor = seleccionar_candidato(candidatos)
     motivo = "" if mejor else ("sin_candidato_valido" if candidatos else "sin_contornos")
-    pasos = {"gris": gris, "filtrada": filtrada, "binaria": binaria, "mascara": mascara} if trazas else {}
+    pasos = {"gris": gris, "filtrada": filtrada, "gradiente": gradiente,
+             "binaria": binaria, "mascara": mascara} if trazas else {}
     return Deteccion(candidatos, mejor, motivo, pasos, len(contornos))
 
 

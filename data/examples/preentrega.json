@@ -1,0 +1,50 @@
+[
+  {
+    "id_imagen": "e7eabde847dd518a92d1",
+    "foto": "data/original/e7eabde847dd518a92d1.jpg",
+    "formato": "antiguo",
+    "motivo": "Patente antigua, OCR exacto y seis regiones. Muestra el recorrido completo."
+  },
+  {
+    "id_imagen": "b0d7731bbc975b028b2a",
+    "foto": "data/original/b0d7731bbc975b028b2a.jpg",
+    "formato": "antiguo",
+    "motivo": "OCR exacto con cinco regiones. La lectura global y la segmentación pueden divergir."
+  },
+  {
+    "id_imagen": "9ec379520ebeb4443391",
+    "foto": "data/original/9ec379520ebeb4443391.jpg",
+    "formato": "antiguo",
+    "motivo": "OCR exacto con ocho regiones. Incluye candidatos adicionales cerca del marco."
+  },
+  {
+    "id_imagen": "cad9c8da878df60fc45e",
+    "foto": "data/original/cad9c8da878df60fc45e.jpg",
+    "formato": "mercosur",
+    "motivo": "Patente Mercosur bien localizada. Tesseract agrega un carácter y S0 cuenta ocho regiones."
+  },
+  {
+    "id_imagen": "2374266dc2d69d723639",
+    "foto": "data/original/2374266dc2d69d723639.jpg",
+    "formato": "mercosur",
+    "motivo": "Patente Mercosur con localización incorrecta. Se procesó una zona sin solapamiento con la caja XML."
+  },
+  {
+    "id_imagen": "7ea9bec4563906e1ff67",
+    "foto": "data/original/7ea9bec4563906e1ff67.jpg",
+    "formato": "antiguo",
+    "motivo": "IoU de patente de 0,801. El último dígito aparece cortado pese al conteo de seis regiones."
+  },
+  {
+    "id_imagen": "cc4748e75272b07697b3",
+    "foto": "data/original/cc4748e75272b07697b3.jpg",
+    "formato": "antiguo",
+    "motivo": "Localización con IoU de 0,834, lectura incorrecta y ninguna región S0."
+  },
+  {
+    "id_imagen": "e3242b4d6d38e931c4d4",
+    "foto": "data/original/e3242b4d6d38e931c4d4.jpg",
+    "formato": "antiguo",
+    "motivo": "Localización con IoU de 0,919 y OCR vacío pese a alcanzar seis regiones."
+  }
+]

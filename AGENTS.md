@@ -2,7 +2,7 @@
 
 ## Objetivo y alcance
 
-Localizar una patente por fotografía estática de un automóvil argentino y comparar dos métodos de reconocimiento sobre las mismas imágenes. Los formatos son `ABC123` y `AB123CD`. Las etapas 1 a 5 cubren configuración, OCR básico, preprocesamiento, detección, diagnóstico y segmentación individual. Hay 58 fotos verificadas de desarrollo y 25 reservadas para evaluación final. La etapa 6 requiere una solicitud explícita.
+Localizar una patente por fotografía estática de un automóvil argentino y comparar dos métodos de reconocimiento sobre las mismas imágenes. Los formatos son `ABC123` y `AB123CD`. Las etapas 1 a 5 cubren configuración, OCR básico, preprocesamiento, detección, diagnóstico y segmentación individual. Hay 58 fotos verificadas de desarrollo y 25 reservadas para evaluación final. La primera entrega está cerrada con el pipeline clásico reproducible. La segunda comenzará por la etapa 6, generación del dataset neuronal, cuando se solicite explícitamente.
 
 ## Restricciones técnicas
 
@@ -35,10 +35,10 @@ La BPN del TP parte de 784 → 64 → 36 y del orden de clases `0123456789ABCDEF
 | `src/ocr_preparation.py` | Escala, polaridad y preparación de una región OCR completa en la etapa 4B. |
 | `src/preprocessing.py`, `src/detection.py`, `src/segmentation.py` | Preprocesamiento, localización y extracción de caracteres. |
 | `src/dataset.py`, `src/neural_network.py` | Preparación del conjunto OCR y futura clasificación neuronal. |
-| `src/evaluation.py`, `src/pipeline.py` | Evaluación M0–M9 y futura integración de las ramas. |
+| `src/evaluation.py`, `src/pipeline.py` | Evaluación histórica e integración clásica independiente de las referencias. |
 | `scripts/` | Importación Pascal VOC, anotación humana y comparaciones reproducibles de preprocesamiento, detección y segmentación. |
 | `models/`, `results/` | Pesos, metadatos, detecciones, imágenes procesadas, caracteres y gráficos. |
-| `train.py`, `main.py` | Entrenamiento y procesamiento por lotes con exportación a TXT y CSV. |
+| `train.py`, `main.py` | Futuro entrenamiento y pipeline clásico con exportación a TXT y CSV. |
 | `notebooks/`, `tests/` | Presentación académica y pruebas. |
 
 ## Etapas
@@ -52,7 +52,7 @@ La BPN del TP parte de 784 → 64 → 36 y del orden de clases `0123456789ABCDEF
 6. Dataset balanceado de 36 clases. Documentar procedencia y licencia de tipografías, aplicar transformaciones de manera controlada y dividir por grupos de ejemplos base para evitar fugas.
 7. BPN vectorizada basada en la referencia.
 8. Entrenamiento reproducible y evaluación en validación, prueba y caracteres reales independientes.
-9. Integración y procesamiento por lotes.
+9. Integración del reconocedor neuronal y comparación con el pipeline clásico.
 10. Comparación experimental, documentación y conclusiones.
 
 Distinguir las evaluaciones sobre recortes y las de extremo a extremo. Contabilizar fallos de detección en el conjunto evaluado. Medir localización, acierto de carácter, acierto de patente, CER y tiempo. Registrar matriz de confusión y curvas de error y acierto del entrenamiento y validación. Informar resultados observados y detenerse después de la etapa autorizada.
@@ -84,5 +84,12 @@ Distinguir las evaluaciones sobre recortes y las de extremo a extremo. Contabili
 
 - Usar los 58 recortes XML de desarrollo para comparar S0–S2 y aplicar la misma configuración provisional a los recortes automáticos del detector B3_FILTRO congelado. Mantener la geometría rotada y su retorno rectangular de 4B.
 - Segmentar solo con píxeles. La transcripción humana sirve para evaluar cantidad y guiar la anotación manual, que se guarda en `data/character_annotations.csv`. Conservar la división y los recortes de referencia.
-- Tratar S0 con banda `fila` como provisional por conteo. Medir IoU individual y cobertura espacial sobre cajas humanas completas. La muestra de 20 patentes sigue pendiente de esas cajas.
+- Tratar S0 con banda `fila` como provisional por conteo. Medir IoU individual y cobertura espacial sobre cajas humanas completas. La muestra consta de 20 patentes. Consultar el estado actual en las anotaciones individuales y explicitar el denominador de la evaluación espacial.
 - Preparar caracteres blancos sobre fondo negro, normalizarlos con la misma función 28 × 28 y aplanar en orden de filas a 784 valores `float32`. Mantener el alfabeto `0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ`. Los PNG exportados llevan índice de región y procedencia para evaluación.
+
+## Cierre de la primera entrega
+
+- El pipeline clásico usa los perfiles congelados de `config/pipeline_clasico.json` con B3_FILTRO, extracción rotada, S0/fila y Tesseract con PSM 7 por defecto. El perfil `cer` conserva la preparación y PSM 6 ensayados en 4B.
+- `main.py --demo` procesa una selección ilustrativa de ocho fotos de desarrollo. El pipeline de inferencia recibe fotos y configuración. Mantener las referencias y etiquetas en evaluación y anotación.
+- `scripts.consolidar_preentrega` lee los ensayos históricos y escribe en `results/preentrega/`. Conservar separados los mejores valores de exactitud y CER. Las 25 fotos de evaluación final siguen reservadas.
+- Consultar `README.md`, `PREENTREGA.md`, `DEFENSA.md` y el notebook antes de cambios. Los resultados espaciales del subconjunto XML completo se guardan aparte de las métricas sobre 58 fotos de desarrollo.

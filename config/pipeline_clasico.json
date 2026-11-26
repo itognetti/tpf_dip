@@ -1,0 +1,103 @@
+{
+  "detector": {
+    "metodo": "D3",
+    "config": {
+      "max_lado": 1000,
+      "gauss_kernel": 5,
+      "canny_bajo": 55,
+      "canny_alto": 150,
+      "canny_kernel": 3,
+      "sobel_kernel": 3,
+      "clahe_limite": 2.0,
+      "clahe_grilla": [
+        8,
+        8
+      ],
+      "morfologia": "cierre",
+      "kernel_canny": [
+        13,
+        5
+      ],
+      "kernel_sobel": [
+        19,
+        5
+      ],
+      "iteraciones": 1,
+      "kernel_relativo_sobel": null,
+      "kernel_dilatacion": null,
+      "iteraciones_dilatacion": 1,
+      "aspecto": [
+        1.45,
+        7
+      ],
+      "area_relativa": [
+        0.00018,
+        0.26
+      ],
+      "ancho_min": 30,
+      "alto_min": 8,
+      "rectangularidad_min": 0.23,
+      "densidad": [
+        0.028,
+        0.68
+      ],
+      "area_objetivo": 0.012,
+      "pesos": [
+        0.31,
+        0.23,
+        0.21,
+        0.25
+      ],
+      "peso_vertical": 0.0,
+      "puntaje_min": 0.43,
+      "epsilon": 0.025
+    },
+    "escalas": []
+  },
+  "geometria": "rotado",
+  "segmentacion": {
+    "altura": 96,
+    "clahe": 1.5,
+    "bloque_adaptativo": 25,
+    "constante_adaptativa": 7,
+    "quitar_marcos": true,
+    "altura_min": 0.32,
+    "altura_max": 0.98,
+    "ancho_rel_max": 0.35,
+    "area_rel_min": 0.001,
+    "aspecto_min": 0.035,
+    "aspecto_max": 1.08,
+    "densidad_min": 0.11,
+    "desalineacion_max": 0.23,
+    "proyeccion_min": 0.25,
+    "unir_fragmentos": true,
+    "separar_unidos": true,
+    "lado_interno": 20
+  },
+  "perfiles": {
+    "exactitud": {
+      "preparacion": {
+        "filtrado": "M2",
+        "factor": 1,
+        "altura": null,
+        "interpolacion": "bicubica",
+        "padding": 0,
+        "polaridad": "original",
+        "recorte": "completo"
+      },
+      "psm": 7
+    },
+    "cer": {
+      "preparacion": {
+        "filtrado": "M2",
+        "factor": 1,
+        "altura": null,
+        "interpolacion": "bicubica",
+        "padding": 0,
+        "polaridad": "central",
+        "recorte": "fila"
+      },
+      "psm": 6
+    }
+  }
+}
