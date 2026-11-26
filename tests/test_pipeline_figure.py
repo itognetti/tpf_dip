@@ -1,13 +1,18 @@
+import csv
+import json
+from dataclasses import asdict
 from pathlib import Path
 
 import matplotlib
 import numpy as np
 import pytest
+from PIL import Image
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from scripts.pipeline_figure import graficar_recorrido, recorrer_pipeline
+from scripts.pipeline_figure import figura_foto, graficar_recorrido, recorrer_pipeline
+from src.dataset import identificador_imagen
 from scripts.stage4b_detection import _variantes
 from src.detection import ConfigDetector
 from src.ocr import cargar_imagen
@@ -52,3 +57,48 @@ def test_recorrido_sin_deteccion_grafica_motivo(vigente):
     fig = graficar_recorrido(recorrido, vigente, titulo="sin caja")
     assert any("Sin recorte" in t.get_text() for t in fig.texts)
     plt.close(fig)
+
+
+@pytest.fixture
+def entorno(tmp_path, vigente):
+    """Configuraciones mínimas de 4B y 5 y una foto nueva en disco."""
+    s4b, s5, datos = tmp_path / "stage4b", tmp_path / "stage5", tmp_path / "data"
+    for carpeta in (s4b, s5, datos):
+        carpeta.mkdir()
+    (s4b / "config.json").write_text(json.dumps({
+        "detector": {"variantes": {"B3_FILTRO": {"metodo": vigente["metodo"],
+                                                 "config": asdict(vigente["detector"]), "escalas": []}}},
+        "geometria_seleccionada": "rectangular",
+        "ocr": {"seleccion": "B0P8", "configuraciones": {
+            "B0P8": {"preparacion": asdict(PreparacionOCR()), "psm": 8}}},
+    }), encoding="utf-8")
+    (s5 / "config.json").write_text(json.dumps({
+        "segmentacion": asdict(ConfigSegmentacion()), "provisional": {"metodo": "S0", "banda": "fila"},
+    }), encoding="utf-8")
+    foto = tmp_path / "nueva.png"
+    Image.fromarray(_foto_sintetica()).save(foto)
+    return foto, datos, s4b, s5
+
+
+def _etiquetas(datos, filas):
+    with (datos / "ground_truth.csv").open("w", newline="", encoding="utf-8") as archivo:
+        escritor = csv.DictWriter(archivo, ["id_imagen", "particion"])
+        escritor.writeheader()
+        escritor.writerows(filas)
+
+
+def test_figura_foto_nueva_sin_etiqueta(entorno):
+    foto, datos, s4b, s5 = entorno
+    _etiquetas(datos, [{"id_imagen": "otro", "particion": "desarrollo"}])
+    fig, resumen = figura_foto(foto, datos, s4b, s5, ocr=False)
+    assert resumen["particion"] == "fuera_del_experimento" and resumen["caja"] is not None
+    assert resumen["texto_ocr"] is None and resumen["regiones"] >= 0
+    plt.close(fig)
+
+
+def test_figura_foto_rechaza_evaluacion_final(entorno):
+    foto, datos, s4b, s5 = entorno
+    _etiquetas(datos, [{"id_imagen": identificador_imagen(Image.open(foto).convert("RGB")),
+                        "particion": "evaluacion_final"}])
+    with pytest.raises(ValueError, match="evaluación final"):
+        figura_foto(foto, datos, s4b, s5, ocr=False)

@@ -90,6 +90,13 @@ def leer_caja_voc(xml: Path, archivo: str, dimensiones: tuple, convencion="robof
     return caja
 
 
+def identificador_imagen(imagen) -> str:
+    """Huella de los píxeles RGB decodificados y de las dimensiones, usada como ID."""
+    huella = hashlib.sha256(f"{imagen.width}x{imagen.height}:".encode())
+    huella.update(imagen.tobytes())
+    return huella.hexdigest()[:20]
+
+
 def _inspeccionar(raiz: Path, fuente: str, convencion: str) -> list[dict]:
     archivos = sorted(p for p in raiz.rglob("*") if p.is_file())
     imagenes = [p for p in archivos if p.suffix.lower() in EXTENSIONES]
@@ -131,9 +138,7 @@ def _inspeccionar(raiz: Path, fuente: str, convencion: str) -> list[dict]:
             fila.update(estado="anotacion_invalida", detalle=str(error))
             continue
         fila.update(zip(CAJA, caja))
-        huella = hashlib.sha256(f"{imagen.width}x{imagen.height}:".encode())
-        huella.update(imagen.tobytes())
-        identificador = huella.hexdigest()[:20]
+        identificador = identificador_imagen(imagen)
         fila["id_imagen"] = identificador
         if identificador in vistos:
             fila.update(estado="duplicada", detalle=vistos[identificador])

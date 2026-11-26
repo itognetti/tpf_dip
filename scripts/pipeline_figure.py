@@ -1,6 +1,6 @@
-"""Recorrido paso a paso del pipeline vigente sobre una fotografía de desarrollo.
+"""Recorrido paso a paso del pipeline vigente sobre una fotografía.
 
-Ejecutar con python -m scripts.pipeline_figure [--id ID_IMAGEN].
+Ejecutar con python -m scripts.pipeline_figure [--id ID_IMAGEN | --foto RUTA].
 """
 
 import argparse
@@ -14,7 +14,7 @@ import pandas as pd
 from matplotlib.patches import Rectangle
 from PIL import Image
 
-from src.dataset import CAJA
+from src.dataset import CAJA, identificador_imagen
 from src.detection import (
     ConfigDetector, Deteccion, detectar_patente, extraer_variante, intensidad_gradiente, sobel,
 )
@@ -129,7 +129,8 @@ def graficar_recorrido(r: Recorrido, vigente: dict, referencia=None, etiqueta=""
         eje.axis("off")
         return eje
 
-    eje = panel(g[0, 0:2], r.foto, "0 · Fotografía de entrada (verde = caja XML, rojo = caja detectada)")
+    leyenda = "verde = caja XML, rojo = caja detectada" if referencia is not None else "rojo = caja detectada"
+    eje = panel(g[0, 0:2], r.foto, f"0 · Fotografía de entrada ({leyenda})")
     if referencia is not None:
         _caja(eje, referencia, "lime", 2.5)
     if elegido is not None:
@@ -213,12 +214,52 @@ def figura_desarrollo(datos: Path, salida_4b: Path, salida_5: Path, id_imagen=No
     return fig, resumen
 
 
+def figura_foto(ruta: Path, datos: Path, salida_4b: Path, salida_5: Path, ocr=True):
+    """Arma la figura para una foto cualquiera, sin etiqueta ni caja de referencia.
+
+    Rechaza las fotos de evaluación final reconocidas por su huella de píxeles.
+    """
+    imagen = cargar_imagen(ruta)
+    ident = identificador_imagen(imagen)
+    filas = pd.read_csv(datos / "ground_truth.csv", keep_default_na=False, dtype={"id_imagen": str})
+    particion = filas.set_index("id_imagen")["particion"].get(ident, "")
+    if particion == "evaluacion_final":
+        raise ValueError("La foto pertenece a la evaluación final reservada.")
+    vigente = configuracion_vigente(salida_4b, salida_5)
+    r = recorrer_pipeline(np.asarray(imagen), vigente, ocr)
+    version = f" · Tesseract {vigente['tesseract']}" if vigente["tesseract"] else ""
+    fig = graficar_recorrido(r, vigente, titulo=f"Pipeline paso a paso · {Path(ruta).name}{version}")
+    elegido = r.deteccion.seleccionado
+    resumen = {
+        "foto": Path(ruta).as_posix(), "id_imagen": ident, "particion": particion or "fuera_del_experimento",
+        "caja": list(elegido.caja) if elegido else None, "motivo": r.deteccion.motivo,
+        "contornos": len(r.deteccion.candidatos),
+        "admitidos": sum(not c.rechazos for c in r.deteccion.candidatos),
+        "texto_literal": r.lectura.texto_original.strip() if r.lectura else None,
+        "texto_ocr": r.lectura.texto_normalizado if r.lectura else None,
+        "formato_valido": r.lectura.formato_valido if r.lectura else None,
+        "regiones": len(r.segmentacion.cajas) if r.segmentacion else 0,
+    }
+    return fig, resumen
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--id", help="ID de una foto de desarrollo. Por defecto se elige un caso exacto.")
-    parser.add_argument("--salida", type=Path, default=Path("results/graphs/pipeline_paso_a_paso.png"))
+    origen = parser.add_mutually_exclusive_group()
+    origen.add_argument("--id", help="ID de una foto de desarrollo. Por defecto se elige un caso exacto.")
+    origen.add_argument("--foto", type=Path, help="Ruta a una foto nueva, sin etiqueta.")
+    parser.add_argument("--salida", type=Path, help="PNG de salida. Por defecto en results/graphs/.")
     args = parser.parse_args()
-    fig, resumen = figura_desarrollo(Path("data"), Path("results/stage4b"), Path("results/stage5"), args.id)
+    rutas = Path("data"), Path("results/stage4b"), Path("results/stage5")
+    if args.foto:
+        try:
+            fig, resumen = figura_foto(args.foto, *rutas)
+        except (OSError, ValueError) as error:
+            parser.exit(1, f"{error}\n")
+        args.salida = args.salida or Path("results/graphs") / f"pipeline_{args.foto.stem}.png"
+    else:
+        fig, resumen = figura_desarrollo(*rutas, args.id)
+        args.salida = args.salida or Path("results/graphs/pipeline_paso_a_paso.png")
     args.salida.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(args.salida, dpi=110)
     print(json.dumps(resumen | {"salida": args.salida.as_posix()}, ensure_ascii=False))
