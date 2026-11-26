@@ -240,6 +240,24 @@ def segmentar(imagen: np.ndarray, metodo="S0", banda="completa", config=None) ->
                         cajas, clara, uniones, separaciones)
 
 
+def evidencia_caracteres(imagen: np.ndarray, metodo="S0", banda="fila", config=None) -> tuple[float, int]:
+    """Puntaje 0–1 de parecido a una patente según las regiones de caracteres de un recorte.
+
+    Premia seis o siete regiones de altura similar en una fila. Usa solo píxeles.
+    """
+    try:
+        resultado = segmentar(imagen, metodo, banda, config)
+    except (ValueError, cv2.error):
+        return 0.0, 0
+    cantidad = len(resultado.cajas_trabajo)
+    if cantidad < 4:
+        return 0.0, cantidad
+    alturas = np.array([c[3] - c[1] for c in resultado.cajas_trabajo], dtype=float)
+    uniformidad = 1 - min(1.0, alturas.std() / alturas.mean())
+    peso = 1.0 if cantidad in (6, 7) else .5 if cantidad in (5, 8) else .2
+    return float(peso * uniformidad), cantidad
+
+
 def normalizar_caracter(imagen: np.ndarray, lado_interno=20, polaridad="auto") -> CaracterNormalizado:
     """Ajusta y centra un carácter impreso siguiendo el procedimiento 20→28 del profesor."""
     if not isinstance(lado_interno, int) or not 1 <= lado_interno <= 28:

@@ -66,7 +66,7 @@ def entorno(tmp_path, vigente):
     for carpeta in (s4b, s5, datos):
         carpeta.mkdir()
     (s4b / "config.json").write_text(json.dumps({
-        "detector": {"variantes": {"B3_FILTRO": {"metodo": vigente["metodo"],
+        "detector": {"seleccion": "B3_FILTRO", "variantes": {"B3_FILTRO": {"metodo": vigente["metodo"],
                                                  "config": asdict(vigente["detector"]), "escalas": []}}},
         "geometria_seleccionada": "rectangular",
         "ocr": {"seleccion": "B0P8", "configuraciones": {

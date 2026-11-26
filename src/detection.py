@@ -46,6 +46,8 @@ class ConfigDetector:
     peso_vertical: float = 0.0
     puntaje_min: float = 0.43
     epsilon: float = 0.025
+    reordenar_k: int = 1
+    peso_caracteres: float = 0.0
 
     def __post_init__(self):
         pares = (self.kernel_canny, self.kernel_sobel, self.clahe_grilla,
@@ -76,6 +78,9 @@ class ConfigDetector:
                     not all(0 < valor <= 0.25 for valor in self.kernel_relativo_sobel))
                 or not 0 < self.epsilon < 0.25):
             raise ValueError("Revisá los intervalos geométricos, el puntaje y epsilon.")
+        if (not isinstance(self.reordenar_k, int) or self.reordenar_k < 1
+                or not 0 <= self.peso_caracteres <= 2):
+            raise ValueError("El reordenamiento usa k ≥ 1 y un peso de caracteres entre 0 y 2.")
 
 
 @dataclass
@@ -93,6 +98,7 @@ class Candidato:
     rechazos: tuple[str, ...]
     distribucion_vertical: float | None = None
     escala: int | None = None
+    evidencia: float | None = None
 
 
 @dataclass
@@ -221,9 +227,24 @@ def extraer_candidatos(
     return sorted(candidatos, key=lambda c: (-c.puntaje, c.caja))
 
 
-def seleccionar_candidato(candidatos: list[Candidato]) -> Candidato | None:
-    """Escoge el de mayor puntaje entre los que pasan todos los criterios."""
-    return max((c for c in candidatos if not c.rechazos), key=lambda c: c.puntaje, default=None)
+def seleccionar_candidato(candidatos: list[Candidato], imagen: np.ndarray | None = None,
+                          config: ConfigDetector | None = None) -> Candidato | None:
+    """Escoge el de mayor puntaje entre los que pasan todos los criterios.
+
+    Con reordenar_k > 1 y peso_caracteres > 0, segmenta los k mejores admitidos y suma la
+    evidencia de caracteres ponderada al puntaje geométrico. Usa solo píxeles de la foto.
+    """
+    admitidos = sorted((c for c in candidatos if not c.rechazos), key=lambda c: (-c.puntaje, c.caja))
+    if not admitidos:
+        return None
+    if imagen is None or config is None or config.reordenar_k < 2 or config.peso_caracteres == 0:
+        return admitidos[0]
+    from .segmentation import evidencia_caracteres
+
+    mejores = admitidos[:config.reordenar_k]
+    for candidato in mejores:
+        candidato.evidencia = evidencia_caracteres(recortar_rectangulo(imagen, candidato.caja))[0]
+    return max(mejores, key=lambda c: c.puntaje + config.peso_caracteres * c.evidencia)
 
 
 def distribucion_vertical(bordes: np.ndarray) -> float:
@@ -271,7 +292,7 @@ def detectar_patente(imagen: np.ndarray, metodo="D1", config=None, *, trazas=Fal
     contornos, _ = cv2.findContours(mascara, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     candidatos = extraer_candidatos(mascara, bordes, imagen.shape, config,
                                    contornos=contornos, bordes_verticales=verticales)
-    mejor = seleccionar_candidato(candidatos)
+    mejor = seleccionar_candidato(candidatos, imagen, config)
     motivo = "" if mejor else ("sin_candidato_valido" if candidatos else "sin_contornos")
     pasos = {"gris": gris, "filtrada": filtrada, "binaria": binaria, "mascara": mascara} if trazas else {}
     return Deteccion(candidatos, mejor, motivo, pasos, len(contornos))

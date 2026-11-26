@@ -211,6 +211,8 @@ def main():
     parser.add_argument("--tipo", choices=("xml", "automatico", "ambos"), default="ambos")
     parser.add_argument("--config", type=Path, help="JSON con ConfigSegmentacion o la configuración exportada")
     parser.add_argument("--salida", type=Path, default=Path("results/stage5"))
+    parser.add_argument("--detector", default="B3_FILTRO",
+                        help="Variante de results/stage4b/config.json para los recortes automáticos")
     args = parser.parse_args()
     salida, datos = args.salida, Path("data")
     if not salida.resolve().is_relative_to(Path("results/stage5").resolve()):
@@ -249,7 +251,9 @@ def main():
         elegido = "S0" if "S0" in metodos else metodos[0], "fila" if "fila" in bandas else bandas[0]
 
     historico = json.loads(Path("results/stage4b/config.json").read_text(encoding="utf-8"))
-    original = historico["detector"]["variantes"]["B3_FILTRO"]
+    if args.detector not in historico["detector"]["variantes"]:
+        parser.error(f"Detector desconocido en la etapa 4B: {args.detector}.")
+    original = historico["detector"]["variantes"][args.detector]
     geometria = historico["geometria_seleccionada"]
     if args.tipo != "xml":
         variante = original["metodo"], ConfigDetector(**original["config"]), original["escalas"]
@@ -279,7 +283,7 @@ def main():
         "metodos": metodos, "bandas": bandas, "segmentacion": asdict(config), "clases_bpn": CLASES,
         "provisional": {"metodo": elegido[0], "banda": elegido[1],
                         "criterio": "cantidad en XML y error absoluto" if args.tipo != "automatico" else "referencia fija"},
-        "detector": {"nombre": "B3_FILTRO", "geometria": geometria, "configuracion": original},
+        "detector": {"nombre": args.detector, "geometria": geometria, "configuracion": original},
         "anotaciones": {"muestra": len(muestra_manual), "completas": estados.count("completa"),
                         "parciales": estados.count("parcial"), "pendientes": estados.count("pendiente"),
                         "espacial_xml": "calculada" if espaciales else "pendiente", "iou_individual": .5},
@@ -288,7 +292,8 @@ def main():
     especial = historico["detector"]["caso_descartado"]["id_imagen"]
     from scripts.stage5_examples import generar_figuras
 
-    ejemplos = generar_figuras(salida, recortes, xml, detalle, resumen, metodos, elegido, config, especial)
+    ejemplos = generar_figuras(salida, recortes, xml, detalle, resumen, metodos, elegido, config, especial,
+                               detector=args.detector)
     registro["ejemplos"] = ejemplos
     (salida / "config.json").write_text(json.dumps(registro, ensure_ascii=False, indent=2), encoding="utf-8")
     print(resumen.query("formato == 'total'").round(4).to_string(index=False))

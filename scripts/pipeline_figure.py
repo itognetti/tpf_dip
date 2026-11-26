@@ -45,9 +45,11 @@ def configuracion_vigente(salida_4b: Path, salida_5: Path) -> dict:
     """Lee el detector, la geometría, el OCR y la segmentación elegidos en desarrollo."""
     c4b = json.loads((salida_4b / "config.json").read_text(encoding="utf-8"))
     c5 = json.loads((salida_5 / "config.json").read_text(encoding="utf-8"))
-    detector = c4b["detector"]["variantes"]["B3_FILTRO"]
+    nombre = c4b["detector"].get("seleccion", "B3_FILTRO")
+    detector = c4b["detector"]["variantes"][nombre]
     ocr = c4b["ocr"]["configuraciones"][c4b["ocr"]["seleccion"]]
     return {
+        "nombre_detector": nombre,
         "metodo": detector["metodo"], "detector": ConfigDetector(**detector["config"]),
         "geometria": c4b["geometria_seleccionada"], "codigo_ocr": c4b["ocr"]["seleccion"],
         "preparacion": PreparacionOCR(**ocr["preparacion"]), "psm": ocr["psm"],
@@ -143,9 +145,12 @@ def graficar_recorrido(r: Recorrido, vigente: dict, referencia=None, etiqueta=""
     panel(g[1, 1], pasos["binaria"][ventana], f"3b · Otsu sobre |Sobel X|{ampliado}")
     panel(g[1, 2], pasos["mascara"][ventana],
           f"4 · Cierre {config.kernel_sobel[0]}×{config.kernel_sobel[1]}{ampliado}")
-    puntaje = f", puntaje {elegido.puntaje:.2f}" if elegido is not None else ", sin selección"
-    eje = panel(g[1, 3], gris, f"5–7 · {len(r.deteccion.candidatos)} contornos → {len(validos)} admitidos\n"
-                f"(amarillo = admitido, rojo = elegido{puntaje})")
+    puntaje = f"puntaje {elegido.puntaje:.2f}" if elegido is not None else "sin selección"
+    if elegido is not None and elegido.evidencia is not None:
+        puntaje += f" · caracteres {elegido.evidencia:.2f}"
+    nombre = vigente.get("nombre_detector", "")
+    eje = panel(g[1, 3], gris, f"5–7 · {nombre} · {len(r.deteccion.candidatos)} contornos → "
+                f"{len(validos)} admitidos\namarillo = admitido · rojo = elegido\n{puntaje}")
     for c in validos:
         if c is not elegido:
             _caja(eje, c.caja, "yellow", 1, escala)

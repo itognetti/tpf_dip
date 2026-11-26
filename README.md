@@ -236,6 +236,29 @@ Las mejoras en CER y lecturas vacías del pipeline combinado no aumentaron las p
 
 La verificación aprobó 104 pruebas con Tesseract. Con el motor ausente pasaron 99 y se omitieron cinco integraciones. El notebook completo se ejecutó desde un kernel nuevo.
 
+### Reordenamiento por evidencia de caracteres
+
+El puntaje geométrico no distingue una patente de otras regiones rectangulares con texto, como insignias del modelo o calcomanías. En 7 de las 58 fotos de desarrollo, B3_FILTRO admitió una caja correcta y seleccionó otra. En esos casos la diferencia la decidía el área, la rectangularidad o la densidad según la foto, y las patentes correctas ocupaban entre 0,2 % y 22 % de la imagen.
+
+B3_CARACTERES conserva la generación y los filtros de B3_FILTRO. Toma los tres candidatos admitidos de mayor puntaje, segmenta cada recorte con S0 y banda `fila` y calcula una evidencia entre 0 y 1. La evidencia vale 1 con seis o siete regiones, 0,5 con cinco u ocho y 0,2 en otro caso, multiplicada por la uniformidad de las alturas. Con menos de cuatro regiones vale 0. Se elige el máximo de `puntaje + 0,5 · evidencia`. La selección usa solo píxeles. Los parámetros están en `ConfigDetector.reordenar_k` y `ConfigDetector.peso_caracteres`, y los valores por defecto conservan la selección de D0–D3 y B3_FILTRO. [Implementación](src/detection.py) · [Evidencia](src/segmentation.py)
+
+Con Tesseract 5.4.0, sobre las mismas 58 fotos de desarrollo:
+
+| Detector | IoU ≥ 0,50 | IoU ≥ 0,75 | IoU medio | C · otra caja | Tiempo medio |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| B3_FILTRO | 26/58 | 17/58 | 0,3618 | 7 | 18,7 ms |
+| B3_CARACTERES | 30/58 | 18/58 | 0,4156 | 3 | 24,0 ms |
+
+Se ganaron cuatro patentes y no se perdió ninguna. Con el OCR elegido (B0P8) y recorte rectangular, el pipeline combinado mantuvo 5/58 aciertos exactos y bajó el CER de 0,7588 a 0,7154, con 19 lecturas vacías en lugar de 21. Varias lecturas nuevas quedaron a un carácter, por ejemplo `HWO350` para HWQ350. Ampliar la tolerancia del área en lugar de reordenar perdió tres patentes. Se probaron cinco variantes en el mismo conjunto de desarrollo, por lo que la mejora debe confirmarse en la evaluación final reservada.
+
+La etapa 5 conserva B3_FILTRO por defecto. Para segmentar los recortes del nuevo detector en un directorio aparte:
+
+```powershell
+.\.venv312\Scripts\python.exe -m scripts.run_segmentation --detector B3_CARACTERES --salida results/stage5/caracteres
+```
+
+Con S0 y banda `fila`, la cantidad correcta en recortes automáticos pasó de 15/58 a 18/58.
+
 ## Etapa 5 · Segmentación y normalización individual
 
 Desde la raíz del proyecto en **CMD**, usá el entorno ya instalado:

@@ -173,3 +173,38 @@ def test_elegir_preprocesamiento_ignora_etiquetas_y_particiones_ajenas(tmp_path)
     pd.DataFrame(filas).to_csv(ruta, index=False)
     assert elegir_preprocesamiento(ruta, casos) == ("M6", "etapa3_desarrollo")
     assert elegir_preprocesamiento(ruta, [{"id_imagen": "dev", "patente": "ABC124"}])[0] == "M0"
+
+
+def _candidato(caja, puntaje):
+    vacio = np.zeros((4, 2), dtype=np.float32)
+    return det.Candidato(caja, vacio, vacio, vacio, 1.0, 3.0, .01, .8, .2, puntaje, ())
+
+
+def test_evidencia_de_caracteres_distingue_patente_de_fondo():
+    from src.ocr import cargar_imagen
+    from src.segmentation import evidencia_caracteres
+
+    datos = Path(__file__).resolve().parents[1] / "data/examples"
+    for nombre, cantidad in (("demo_antigua_ABC123", 6), ("demo_mercosur_AB123CD", 7)):
+        puntaje, n = evidencia_caracteres(np.asarray(cargar_imagen(datos / f"{nombre}.png")))
+        assert n == cantidad and puntaje > .9
+    assert evidencia_caracteres(np.full((60, 200, 3), 128, np.uint8)) == (0.0, 0)
+
+
+def test_reordenamiento_por_caracteres_prefiere_la_patente():
+    from src.ocr import cargar_imagen
+
+    placa = np.asarray(cargar_imagen(Path(__file__).resolve().parents[1] / "data/examples/demo_antigua_ABC123.png"))
+    h, w = placa.shape[:2]
+    foto = np.full((h + 100, 2 * w + 150, 3), 120, np.uint8)
+    foto[50:50 + h, 50:50 + w] = placa
+    señuelo = _candidato((w + 100, 50, 2 * w + 100, 50 + h), .80)
+    patente = _candidato((50, 50, 50 + w, 50 + h), .75)
+    candidatos = [señuelo, patente]
+    assert det.seleccionar_candidato(candidatos) is señuelo
+    assert det.seleccionar_candidato(candidatos, foto, det.ConfigDetector()) is señuelo
+    config = det.ConfigDetector(reordenar_k=3, peso_caracteres=.5)
+    assert det.seleccionar_candidato(candidatos, foto, config) is patente
+    assert patente.evidencia > .9 and señuelo.evidencia == 0.0
+    with pytest.raises(ValueError):
+        det.ConfigDetector(reordenar_k=0)

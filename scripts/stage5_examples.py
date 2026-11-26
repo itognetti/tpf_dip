@@ -104,7 +104,8 @@ def _reparacion(imagen, metodo, banda, config):
     return fig
 
 
-def generar_figuras(salida, recortes, xml, detalle, resumen, metodos, elegido, config, especial):
+def generar_figuras(salida, recortes, xml, detalle, resumen, metodos, elegido, config, especial,
+                    detector="B3_FILTRO"):
     metodo, banda = elegido
     archivos, graficos = salida / "examples", salida / "graphs"
     ejemplos = {}
@@ -114,7 +115,7 @@ def generar_figuras(salida, recortes, xml, detalle, resumen, metodos, elegido, c
     for eje, tipo in zip(ejes[0], tipos):
         tabla = total[total.tipo_recorte.eq(tipo)].pivot(index="metodo", columns="banda", values="tasa_cantidad")
         tabla.plot.bar(ax=eje, rot=0, color=["#25756d", "#bd7454", "#6e91a7"][:len(tabla.columns)])
-        eje.set(title="Recorte XML" if tipo == "xml" else "Automático B3_FILTRO",
+        eje.set(title="Recorte XML" if tipo == "xml" else f"Automático {detector}",
                 xlabel="", ylabel="Proporción con cantidad correcta", ylim=(0, 1))
         eje.legend(title="Banda", fontsize=8)
         eje.grid(axis="y", alpha=.25)
@@ -175,7 +176,7 @@ def generar_figuras(salida, recortes, xml, detalle, resumen, metodos, elegido, c
         fig, ejes = plt.subplots(2, 2, figsize=(9, 5), layout="constrained")
         fila = detalle[detalle.id_imagen.eq(especial) & detalle.tipo_recorte.eq("automatico")].iloc[0]
         for (a, b), entrada, titulo in zip(ejes, (xml[especial], auto[especial]),
-                                           ("Recorte XML", f"B3_FILTRO · IoU {fila.iou_patente:.3f}")):
+                                           ("Recorte XML", f"{detector} · IoU {fila.iou_patente:.3f}")):
             s = segmentar(entrada, metodo, banda, config)
             _imagen(a, entrada)
             _marcar(a, s.banda, "#ffbc47")

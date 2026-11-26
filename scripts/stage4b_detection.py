@@ -35,6 +35,7 @@ def _variantes(base):
         "B3_ENLACE": ("D3", replace(base, kernel_sobel=(25, 5), iteraciones=2,
                                     kernel_dilatacion=(3, 3), iteraciones_dilatacion=2), ()),
         "B3_FILTRO": ("D3", flexible, ()),
+        "B3_CARACTERES": ("D3", replace(flexible, reordenar_k=3, peso_caracteres=.5), ()),
         "B3_VERT": ("D3", vertical, ()),
         "B2_MULTI": ("D2", relativo, (760, 1200)),
         "B3_MULTI": ("D3", relativo, (760, 1200)),
@@ -50,7 +51,7 @@ def detectar_variante(foto, variante):
     resultados = [detectar_patente(foto, metodo, replace(config, max_lado=lado)) for lado in efectivos]
     candidatos = sorted((c for paso in resultados for c in paso.candidatos),
                         key=lambda c: (-c.puntaje, c.caja))
-    elegido = seleccionar_candidato(candidatos)
+    elegido = seleccionar_candidato(candidatos, foto, config)
     motivo = "" if elegido else ("sin_candidato_valido" if candidatos else "sin_contornos")
     return Deteccion(candidatos, elegido, motivo, {}, sum(p.n_contornos for p in resultados))
 
